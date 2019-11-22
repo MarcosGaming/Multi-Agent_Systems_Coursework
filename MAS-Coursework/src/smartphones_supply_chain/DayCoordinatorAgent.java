@@ -189,6 +189,7 @@ public class DayCoordinatorAgent extends Agent{
 						ContentElement ce = null;
 						ce = getContentManager().extractContent(msg);
 						if(ce instanceof DayEnd) {
+							System.out.println("End of day: " + currentDay);
 							step++;
 						}
 					} catch (CodecException ce) {

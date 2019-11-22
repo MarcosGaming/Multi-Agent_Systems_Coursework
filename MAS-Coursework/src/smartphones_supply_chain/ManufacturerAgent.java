@@ -28,8 +28,13 @@ import smartphones_supply_chain_ontology.actions.PrepareOrderToAssemble;
 import smartphones_supply_chain_ontology.actions.SellOrder;
 import smartphones_supply_chain_ontology.concepts.Order;
 import smartphones_supply_chain_ontology.predicates.Costs;
+import smartphones_supply_chain_ontology.predicates.DayEnd;
 import smartphones_supply_chain_ontology.predicates.NewDay;
 import smartphones_supply_chain_ontology.predicates.NoMoreOrdersToday;
+import smartphones_supply_chain_ontology.predicates.OrderDelivered;
+import smartphones_supply_chain_ontology.predicates.OrdersReady;
+import smartphones_supply_chain_ontology.predicates.Payment;
+import smartphones_supply_chain_ontology.predicates.StorageCost;
 
 public class ManufacturerAgent extends Agent{
 
@@ -39,9 +44,11 @@ public class ManufacturerAgent extends Agent{
 	private AID warehouseAID;
 	private AID dayCoordinatorAID;
 	private int dailyProfit;
+	private int dailyPurchaseAndLatePenaltyCosts;
+	private int dailyWarehouseStorageCost;
+	private int dailyPayments;
 	private int totalProfit;
 	private int minimumBenefitMargin;
-	private ArrayList<Order> dailyOrdersReady;
 	
 	// Initialize the agent
 	protected void setup() {
@@ -64,7 +71,10 @@ public class ManufacturerAgent extends Agent{
 		minimumBenefitMargin = (int) args[0];
 		// Initialize variables
 		totalProfit = 0;
-		dailyOrdersReady = new ArrayList<Order>();
+		dailyProfit = 0;
+		dailyPurchaseAndLatePenaltyCosts = 0;
+		dailyWarehouseStorageCost = 0;
+		dailyPayments = 0;
 		// Wait for other agents to initialize
 		doWait(2000);
 		// Add starter behaviours
@@ -155,8 +165,7 @@ public class ManufacturerAgent extends Agent{
 						// Add sequential behaviour
 						SequentialBehaviour dailyActivity = new SequentialBehaviour();
 						dailyActivity.addSubBehaviour(new ProcessOrderBehaviour());
-						dailyActivity.addSubBehaviour(new ReceiveOrdersReadyBehaviour());
-						dailyActivity.addSubBehaviour(new SendOrdersBehaviour());
+						dailyActivity.addSubBehaviour(new ProcessOrdersReadyBehaviour());
 						dailyActivity.addSubBehaviour(new CalculateDailyProfitBehaviour());
 						dailyActivity.addSubBehaviour(new EndDayBehaviour());
 					} else {
@@ -242,8 +251,8 @@ public class ManufacturerAgent extends Agent{
 							// Decide whether to accept the order or not based on the minimum benefit margin
 							int benefitMargin = (benefit / sellPrice) * 100;
 							if(benefitMargin >= minimumBenefitMargin) {
-								// Add costs of the order to the daily profit
-								dailyProfit -= costs.getCost();
+								// This cost includes the supplies purchased and any penalty for late delivery which is calculated in advance
+								dailyPurchaseAndLatePenaltyCosts = costs.getCost();
 								// Create action
 								PrepareOrderToAssemble orderToAssemble = new PrepareOrderToAssemble();
 								orderToAssemble.setOrder(currentOrder);
@@ -280,7 +289,7 @@ public class ManufacturerAgent extends Agent{
 					}
 				}
 				break;
-			// Send notification to warehouse about not more orders for the
+			// Send notification to warehouse about no more orders for the day
 			case 2:
 				// Create predicate
 				NoMoreOrdersToday  noMoreOrdersToday = new NoMoreOrdersToday();
@@ -308,41 +317,183 @@ public class ManufacturerAgent extends Agent{
 		}
 	}
 	
-	// Behaviour that is going to wait to receive orders from the warehouse
-	private class ReceiveOrdersReadyBehaviour extends Behaviour{
+	// Behaviour that is going to receive the orders ready from the warehouse, send them to the customers and receive the corresponding payment
+	private class ProcessOrdersReadyBehaviour extends Behaviour{
+		private int step = 0;
+		private int numbOrdersReadyDelivered = 0;
+		private int numbPaymentsReceived = 0;
+		
 		public void action() {
-			
+			switch(step) {
+			// Receive orders ready from the warehouse
+			case 0:
+				MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+				ACLMessage msg = myAgent.receive(mt);
+				if(msg != null) {
+					try {
+						// Transform string to java objects
+						ContentElement ce = getContentManager().extractContent(msg);
+						if(ce instanceof OrdersReady) {
+							OrdersReady ordersReady = (OrdersReady) ce;
+							// If there are any orders ready send them to the according customer
+							if(ordersReady.getOrders().isEmpty()) {
+								step = 2;
+							} 
+							else
+							{
+								for(Order orderReady : ordersReady.getOrders()) {
+									// Create predicate
+									OrderDelivered orderDelivered = new OrderDelivered();
+									orderDelivered.setOrder(orderReady);
+									// Send order ready to customer
+									ACLMessage orderDeliveredMsg = new ACLMessage(ACLMessage.INFORM);
+									orderDeliveredMsg.addReceiver(orderReady.getAID());
+									orderDeliveredMsg.setLanguage(codec.getName());
+									orderDeliveredMsg.setOntology(ontology.getName());
+									try {
+										// Transform java objects to string
+										getContentManager().fillContent(orderDeliveredMsg, orderDelivered);
+										myAgent.send(orderDeliveredMsg);
+									} catch (CodecException codece) {
+										codece.printStackTrace();
+									} catch (OntologyException oe) {
+										oe.printStackTrace();
+									}
+								}
+								numbOrdersReadyDelivered = ordersReady.getOrders().size();
+								step = 1;
+							}
+						}
+					} catch (CodecException ce) {
+						ce.printStackTrace();
+					} catch (OntologyException oe) {
+						oe.printStackTrace();
+					}
+				} else {
+					block();
+				}
+				break;
+			// Receive payment from customers
+			case 1:
+				MessageTemplate mt1 = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+				ACLMessage msg1 = myAgent.receive(mt1);
+				if(msg1 != null) {
+					try {
+						// Transform strings to java objects
+						ContentElement ce = getContentManager().extractContent(msg1);
+						if(ce instanceof Payment) {
+							// Add payment to daily profit
+							Payment payment = (Payment) ce;
+							dailyPayments += payment.getPrice();
+							numbPaymentsReceived++;
+							// When all payments are received increase step
+							if(numbOrdersReadyDelivered == numbPaymentsReceived) {
+								step++;
+							}
+						}
+					}  catch (CodecException ce) {
+						ce.printStackTrace();
+					} catch (OntologyException oe) {
+						oe.printStackTrace();
+					}
+				} else {
+					block();
+				}
+				break;
+			}
 		}
 		
 		public boolean done() {
-			return false;
+			return step == 2;
 		}
 	}
 	
-	// Behaviour that is going to send any orders ready to the customer and receive payment from them
-	private class SendOrdersBehaviour extends Behaviour{
-		public void action() {
-			
-		}
-		public boolean done() {
-			return false;
-		}
-	}
-	
-	// Behaviour that is going to calculate the daily profit
+	// Behaviour that is going to finish the calculation of the daily profit and add it to the total profit
 	private class CalculateDailyProfitBehaviour extends Behaviour{
+		private int step = 0;
+		
 		public void action() {
-			
+			switch(step) {
+			// Query the warehouse about the storage costs of the day
+			case 0:
+				// Create predicate
+				StorageCost storageCost = new StorageCost();
+				// Send message
+				ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
+				msg.addReceiver(warehouseAID);
+				msg.setLanguage(codec.getName());
+				msg.setOntology(ontology.getName());
+				try {
+					// Transform java objects to strings
+					getContentManager().fillContent(msg, storageCost);
+					myAgent.send(msg);
+				} catch (CodecException ce) {
+					ce.printStackTrace();
+				} catch (OntologyException oe) {
+					oe.printStackTrace();
+				}
+				step++;
+				break;
+			// Receive storage costs message from warehouse
+			case 1:
+				MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+				ACLMessage msg1 = myAgent.receive(mt);
+				if(msg1 != null) {
+					try {
+						// Transform strings to java objects
+						ContentElement ce = getContentManager().extractContent(msg1);
+						if(ce instanceof Costs) {
+							// Get storage cost for the day
+							Costs costs = (Costs) ce;
+							dailyWarehouseStorageCost = costs.getCost();
+							step++;
+						}
+					} catch (CodecException codece) {
+						codece.printStackTrace();
+					} catch (OntologyException oe) {
+						oe.printStackTrace();
+					}
+				}
+				break;
+			// Calculate daily profit
+			case 2:
+				dailyProfit = dailyPayments - dailyWarehouseStorageCost - dailyPurchaseAndLatePenaltyCosts;
+				totalProfit += dailyProfit;
+				System.out.println("Daily profit of: " + dailyProfit);
+				System.out.println("Total profit of: " + totalProfit);
+				break;
+			}
 		}
+		
 		public boolean done() {
-			return false;
+			return step == 3;
 		}
 	}
 	
 	// Behaviour that is going to call the day off
 	private class EndDayBehaviour extends OneShotBehaviour{
 		public void action() {
-			// Reset daily profit and ready orders
+			// Reset daily variables
+			dailyProfit = 0;
+			dailyPurchaseAndLatePenaltyCosts = 0;
+			dailyWarehouseStorageCost = 0;
+			dailyPayments = 0;
+			// Create predicate
+			DayEnd dayEnd = new DayEnd();
+			// Send day end message to day coordinator
+			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+			msg.addReceiver(dayCoordinatorAID);
+			msg.setLanguage(codec.getName());
+			msg.setOntology(ontology.getName());
+			try {
+				// Transform java objects to strings
+				getContentManager().fillContent(msg, dayEnd);
+				myAgent.send(msg);
+			} catch (CodecException codece) {
+				codece.printStackTrace();
+			} catch (OntologyException oe) {
+				oe.printStackTrace();
+			}
 		}
 	}
 	
