@@ -5,14 +5,14 @@ import jade.content.onto.annotations.Slot;
 
 public class Payment implements Predicate{
 	
-	private int price;
+	private int amount;
 	
 	@Slot(mandatory = true)
-	public int getPrice() {
-		return price;
+	public int getAmount() {
+		return amount;
 	}
 	
-	public void setPrice(int price) {
-		this.price = price;
+	public void setAmount(int price) {
+		this.amount = price;
 	}
 }

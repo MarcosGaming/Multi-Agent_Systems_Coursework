@@ -23,8 +23,14 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import smartphones_supply_chain_ontology.SupplyChainOntology;
 import smartphones_supply_chain_ontology.actions.SellSupplies;
+import smartphones_supply_chain_ontology.concepts.Battery;
+import smartphones_supply_chain_ontology.concepts.Component;
+import smartphones_supply_chain_ontology.concepts.Ram;
+import smartphones_supply_chain_ontology.concepts.Screen;
+import smartphones_supply_chain_ontology.concepts.Storage;
 import smartphones_supply_chain_ontology.concepts.Supplies;
 import smartphones_supply_chain_ontology.predicates.NewDay;
+import smartphones_supply_chain_ontology.predicates.NoMoreSuppliesToday;
 import smartphones_supply_chain_ontology.predicates.SupplierDetails;
 import smartphones_supply_chain_ontology.predicates.SupplierInformation;
 import smartphones_supply_chain_ontology.predicates.SuppliesDelivered;
@@ -33,8 +39,10 @@ public class SupplierAgent extends Agent{
 
 	private Codec codec = new SLCodec();
 	private Ontology ontology = SupplyChainOntology.getInstance();
+	
 	private AID warehouseAID;
 	private AID dayCoordinatorAID;
+	
 	private SupplierInformation supplierInformation;
 	private ArrayList<SuppliesToDeliver> pendingDeliveries;
 	
@@ -56,10 +64,11 @@ public class SupplierAgent extends Agent{
 		}
 		// Get the supplier information from the arguments
 		Object[] args = this.getArguments();
-		supplierInformation = (SupplierInformation) args[0];
-		// Initialize pending deliveries list
+		supplierInformation = createSupplierInformation((String[])args[0], (int[])args[1], (int[])args[2], (int[])args[3], (int[])args[4], (int[])args[5], (String[])args[6], 
+														(int[])args[7], (int)args[8]);
+		// Initialise pending deliveries list
 		pendingDeliveries = new ArrayList<SuppliesToDeliver>();
-		// Wait for other agents to initialize
+		// Wait for other agents to initialise
 		doWait(2000);
 		// Add starter behaviours
 		this.addBehaviour(new FindWarehouseBehaviour());
@@ -70,7 +79,7 @@ public class SupplierAgent extends Agent{
 	}
 	
 	// Called when agent is deleted
-	protected void TakeDown() {
+	protected void takeDown() {
 		// Bye message
 		System.out.println("Agent " + this.getLocalName() + " is terminating.");
 		// Deregister agent from the yellow pages
@@ -118,13 +127,12 @@ public class SupplierAgent extends Agent{
 	// Behaviour that waits for new day or end simulation calls
 	public class DayCoordinatorWaiterBehaviour extends CyclicBehaviour{
 		public void action() {
-			MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
+			MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchPerformative(ACLMessage.INFORM), MessageTemplate.MatchSender(dayCoordinatorAID));
 			ACLMessage msg = myAgent.receive(mt);
 			if(msg != null) {
 				try {
 					// Convert string to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
+					ContentElement ce = getContentManager().extractContent(msg);
 					// Every new day the supplier might send supplies to the warehouse
 					if(ce instanceof NewDay) {
 						// Add to the supplier the send supplies behaviour
@@ -154,9 +162,7 @@ public class SupplierAgent extends Agent{
 			if(msg != null) {
 				try {
 					// Convert string to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
-					// Make sure that the message contains the predicate supplier details
+					ContentElement ce =  getContentManager().extractContent(msg);
 					if(ce instanceof SupplierDetails) {
 						// Send a message to the manufacturer with the supplier information
 						ACLMessage response = new ACLMessage(ACLMessage.INFORM);
@@ -164,7 +170,7 @@ public class SupplierAgent extends Agent{
 						response.setLanguage(codec.getName());
 						response.setOntology(ontology.getName());
 						try {
-							// Convert java object to string
+							// Convert java objects to string
 							getContentManager().fillContent(response, supplierInformation);
 							myAgent.send(response);
 						} catch (CodecException codece) {
@@ -197,8 +203,7 @@ public class SupplierAgent extends Agent{
 			if(msg != null) {
 				try {
 					// Convert strings to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
+					ContentElement ce = getContentManager().extractContent(msg);
 					if(ce instanceof Action) {
 						Concept action = ((Action)ce).getAction();
 						if(action instanceof SellSupplies) {
@@ -222,6 +227,7 @@ public class SupplierAgent extends Agent{
 	// Behaviour that is going to send supplies if they are ready at the beginning of each day
 	public class SendSuppliesBehaviour extends OneShotBehaviour{
 		public void action() {
+			ArrayList<SuppliesToDeliver> deliveriesToRemove = new ArrayList<SuppliesToDeliver>();
 			for(SuppliesToDeliver delivery : pendingDeliveries) {
 				int days = delivery.getDaysLeftToDeliver();
 				days--;
@@ -242,12 +248,30 @@ public class SupplierAgent extends Agent{
 					} catch (OntologyException oe) {
 						oe.printStackTrace();
 					}
-					// Remove delivery from list of pending deliveries
-					pendingDeliveries.remove(delivery);
+					// Add delivery to the list of deliveries to remove
+					deliveriesToRemove.add(delivery);
 				} else {
 					// Update days left to deliver
 					delivery.setDaysLeftToDeliver(days);
 				}
+			}
+			// Remove deliveries from list of pending deliveries
+			pendingDeliveries.removeAll(deliveriesToRemove);
+			// Create Predicate
+			NoMoreSuppliesToday noMoreSuppliesToday = new NoMoreSuppliesToday();
+			// Inform warehouse that there are no more supplies to deliver
+			ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+			msg.addReceiver(warehouseAID);
+			msg.setLanguage(codec.getName());
+			msg.setOntology(ontology.getName());
+			try {
+				// Transform java objects to strings
+				getContentManager().fillContent(msg, noMoreSuppliesToday);
+				myAgent.send(msg);
+			} catch (CodecException codece) {
+				codece.printStackTrace();
+			} catch (OntologyException oe) {
+				oe.printStackTrace();
 			}
 		}
 	}
@@ -273,5 +297,43 @@ public class SupplierAgent extends Agent{
 			return daysLeftToDeliver;
 		}
 		
+	}
+	
+	// Method that is going to extract its information from the arguments
+	private SupplierInformation createSupplierInformation(String[] screenSizes, int[] screenPrices, int[] storageCapacities, int[] storagePrices,
+			int[] ramAmounts, int[] ramPrices, String[] batteryCharges, int[] batteryPrices, int deliveryTime) {
+		SupplierInformation supplierInformation = new SupplierInformation();
+		ArrayList<Component> components = new ArrayList<Component>();
+		// Screens
+		for(int i = 0; i < screenSizes.length; i++) {
+		Screen screen = new Screen();
+		screen.setSize(screenSizes[i]);
+		screen.setPrice(screenPrices[i]);
+		components.add(screen);
+		}
+		// Storages
+		for(int i = 0; i < storageCapacities.length; i++) {
+		Storage storage = new Storage();
+		storage.setCapacity(storageCapacities[i]);
+		storage.setPrice(storagePrices[i]);
+		components.add(storage);
+		}
+		// Rams
+		for(int i = 0; i < ramAmounts.length; i++) {
+		Ram ram = new Ram();
+		ram.setAmount(ramAmounts[i]);
+		ram.setPrice(ramPrices[i]);
+		components.add(ram);
+		}
+		// Batteries
+		for(int i = 0; i < batteryCharges.length; i++) {
+		Battery battery = new Battery();
+		battery.setCharge(batteryCharges[i]);
+		battery.setPrice(batteryPrices[i]);
+		components.add(battery);
+		}
+		supplierInformation.setComponents(components);
+		supplierInformation.setDeliveryTime(deliveryTime);
+		return supplierInformation;
 	}
 }

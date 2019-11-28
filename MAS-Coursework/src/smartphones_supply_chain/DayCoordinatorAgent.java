@@ -25,6 +25,7 @@ public class DayCoordinatorAgent extends Agent{
 	
 	private Codec codec = new SLCodec();
 	private Ontology ontology = SupplyChainOntology.getInstance();
+	
 	private AID manufacturerAID;
 	private AID warehouseAID;
 	private AID[] customersAID;
@@ -48,7 +49,7 @@ public class DayCoordinatorAgent extends Agent{
 		} catch(FIPAException e) {
 			e.printStackTrace();
 		}
-		// Wait for the other agents to initialize
+		// Wait for the other agents to initialise
 		doWait(2000);
 		// Add starter behaviours
 		this.addBehaviour(new FindManufacturerBehaviour());
@@ -59,7 +60,7 @@ public class DayCoordinatorAgent extends Agent{
 	}
 	
 	// Called when agent is deleted
-	protected void TakeDown() {
+	protected void takeDown() {
 		// Bye message
 		System.out.println("Agent " + this.getLocalName() + " is terminating.");
 		// Deregister agent from the yellow pages
@@ -147,7 +148,7 @@ public class DayCoordinatorAgent extends Agent{
 	// Behaviour to synchronize agents
 	public class SyncAgentsBehaviour extends Behaviour{
 		private int step = 0;
-		private int currentDay = 0;
+		private int currentDay = 1;
 		
 		@Override
 		public void action() {
@@ -186,8 +187,7 @@ public class DayCoordinatorAgent extends Agent{
 				ACLMessage msg = myAgent.receive(mt);
 				if(msg != null) {
 					try {
-						ContentElement ce = null;
-						ce = getContentManager().extractContent(msg);
+						ContentElement ce = getContentManager().extractContent(msg);
 						if(ce instanceof DayEnd) {
 							System.out.println("End of day: " + currentDay);
 							step++;

@@ -2,6 +2,7 @@ package smartphones_supply_chain;
 
 import java.util.ArrayList;
 
+
 import jade.content.Concept;
 import jade.content.ContentElement;
 import jade.content.lang.Codec;
@@ -27,28 +28,34 @@ import smartphones_supply_chain_ontology.actions.CalculateOrderCost;
 import smartphones_supply_chain_ontology.actions.PrepareOrderToAssemble;
 import smartphones_supply_chain_ontology.actions.SellOrder;
 import smartphones_supply_chain_ontology.concepts.Order;
-import smartphones_supply_chain_ontology.predicates.Costs;
 import smartphones_supply_chain_ontology.predicates.DayEnd;
 import smartphones_supply_chain_ontology.predicates.NewDay;
 import smartphones_supply_chain_ontology.predicates.NoMoreOrdersToday;
 import smartphones_supply_chain_ontology.predicates.OrderDelivered;
 import smartphones_supply_chain_ontology.predicates.OrdersReady;
 import smartphones_supply_chain_ontology.predicates.Payment;
-import smartphones_supply_chain_ontology.predicates.StorageCost;
+import smartphones_supply_chain_ontology.predicates.PredictedOrderCost;
+import smartphones_supply_chain_ontology.predicates.WarehouseExpenses;
+import smartphones_supply_chain_ontology.predicates.WarehouseExpensesToday;
 
 public class ManufacturerAgent extends Agent{
 
 	private Codec codec = new SLCodec();
 	private Ontology ontology = SupplyChainOntology.getInstance();
+	
 	private AID[] customersAID;
 	private AID warehouseAID;
 	private AID dayCoordinatorAID;
+	
 	private int dailyProfit;
-	private int dailyPurchaseAndLatePenaltyCosts;
+	private int dailyPurchasesCost;
+	private int dailyPenaltiesCost;
 	private int dailyWarehouseStorageCost;
 	private int dailyPayments;
+	private int currentDay;
+	
 	private int totalProfit;
-	private int minimumBenefitMargin;
+	private static final int minimumBenefitMargin = 20;
 	
 	// Initialize the agent
 	protected void setup() {
@@ -66,26 +73,26 @@ public class ManufacturerAgent extends Agent{
 		} catch(FIPAException e) {
 			e.printStackTrace();
 		}
-		// Get the minimum benefit from the arguments
-		Object[] args = this.getArguments();
-		minimumBenefitMargin = (int) args[0];
 		// Initialize variables
 		totalProfit = 0;
 		dailyProfit = 0;
-		dailyPurchaseAndLatePenaltyCosts = 0;
+		dailyPurchasesCost = 0;
+		dailyPenaltiesCost = 0;
 		dailyWarehouseStorageCost = 0;
 		dailyPayments = 0;
+		currentDay = 0;
 		// Wait for other agents to initialize
 		doWait(2000);
 		// Add starter behaviours
 		this.addBehaviour(new FindCustomersBehaviour());
 		this.addBehaviour(new FindWarehouseBehaviour());
 		this.addBehaviour(new FindDayCoordinatorBehaviour());
+		// Add starter behaviours
 		this.addBehaviour(new DayCoordinatorWaiterBehaviour());
 	}
 	
 	// Called when agent is deleted
-	protected void TakeDown() {
+	protected void takeDown() {
 		// Bye message
 		System.out.println("Agent " + this.getLocalName() + " is terminating.");
 		// Deregister agent from the yellow pages
@@ -160,14 +167,17 @@ public class ManufacturerAgent extends Agent{
 					// Convert string to java objects
 					ContentElement ce = null;
 					ce = getContentManager().extractContent(msg);
-					// Every new day the manufacturer is going to carry a series of operations
+					// Every new day the manufacturer is going to carry out a series of operations
 					if(ce instanceof NewDay) {
+						NewDay newDay = new NewDay();
+						currentDay = newDay.getDayNumber();
 						// Add sequential behaviour
 						SequentialBehaviour dailyActivity = new SequentialBehaviour();
 						dailyActivity.addSubBehaviour(new ProcessOrderBehaviour());
 						dailyActivity.addSubBehaviour(new ProcessOrdersReadyBehaviour());
 						dailyActivity.addSubBehaviour(new CalculateDailyProfitBehaviour());
 						dailyActivity.addSubBehaviour(new EndDayBehaviour());
+						myAgent.addBehaviour(dailyActivity);
 					} else {
 						// If end simulation is received print total profit
 						myAgent.doDelete();
@@ -184,7 +194,7 @@ public class ManufacturerAgent extends Agent{
 		}
 	}
 	
-	// Behaviour that is going to agree or refuse to process an order from a manufacturer
+	// Behaviour that is going to agree or refuse to process an order from a customer
 	private class ProcessOrderBehaviour extends Behaviour{
 		int step = 0;
 		int ordersReceived = 0;
@@ -243,16 +253,14 @@ public class ManufacturerAgent extends Agent{
 				if( msg1 != null) {
 					try {
 						ContentElement ce = getContentManager().extractContent(msg1);
-						if(ce instanceof Costs) {
-							Costs costs = (Costs) ce;
+						if(ce instanceof PredictedOrderCost) {
+							PredictedOrderCost costs = (PredictedOrderCost) ce;
 							// Extact benefit from the costs and the sell price
 							int sellPrice = currentOrder.getUnitPrice() * currentOrder.getQuantity();
 							int benefit = sellPrice - costs.getCost();
 							// Decide whether to accept the order or not based on the minimum benefit margin
-							int benefitMargin = (benefit / sellPrice) * 100;
-							if(benefitMargin >= minimumBenefitMargin) {
-								// This cost includes the supplies purchased and any penalty for late delivery which is calculated in advance
-								dailyPurchaseAndLatePenaltyCosts = costs.getCost();
+							float benefitMargin = ((float)benefit / (float)sellPrice) * 100.0f;
+							if(benefitMargin >= minimumBenefitMargin && totalProfit >= 0) {
 								// Create action
 								PrepareOrderToAssemble orderToAssemble = new PrepareOrderToAssemble();
 								orderToAssemble.setOrder(currentOrder);
@@ -336,7 +344,7 @@ public class ManufacturerAgent extends Agent{
 						if(ce instanceof OrdersReady) {
 							OrdersReady ordersReady = (OrdersReady) ce;
 							// If there are any orders ready send them to the according customer
-							if(ordersReady.getOrders().isEmpty()) {
+							if(ordersReady.getOrders() == null || ordersReady.getOrders().isEmpty()) {
 								step = 2;
 							} 
 							else
@@ -363,6 +371,8 @@ public class ManufacturerAgent extends Agent{
 								numbOrdersReadyDelivered = ordersReady.getOrders().size();
 								step = 1;
 							}
+						} else {
+							myAgent.postMessage(msg);
 						}
 					} catch (CodecException ce) {
 						ce.printStackTrace();
@@ -382,9 +392,9 @@ public class ManufacturerAgent extends Agent{
 						// Transform strings to java objects
 						ContentElement ce = getContentManager().extractContent(msg1);
 						if(ce instanceof Payment) {
-							// Add payment to daily profit
+							// Add payment to daily payments
 							Payment payment = (Payment) ce;
-							dailyPayments += payment.getPrice();
+							dailyPayments += payment.getAmount();
 							numbPaymentsReceived++;
 							// When all payments are received increase step
 							if(numbOrdersReadyDelivered == numbPaymentsReceived) {
@@ -414,10 +424,10 @@ public class ManufacturerAgent extends Agent{
 		
 		public void action() {
 			switch(step) {
-			// Query the warehouse about the storage costs of the day
+			// Query the warehouse about all the costs of the day
 			case 0:
 				// Create predicate
-				StorageCost storageCost = new StorageCost();
+				WarehouseExpensesToday warehouseExpensesToday = new WarehouseExpensesToday();
 				// Send message
 				ACLMessage msg = new ACLMessage(ACLMessage.QUERY_IF);
 				msg.addReceiver(warehouseAID);
@@ -425,7 +435,7 @@ public class ManufacturerAgent extends Agent{
 				msg.setOntology(ontology.getName());
 				try {
 					// Transform java objects to strings
-					getContentManager().fillContent(msg, storageCost);
+					getContentManager().fillContent(msg, warehouseExpensesToday);
 					myAgent.send(msg);
 				} catch (CodecException ce) {
 					ce.printStackTrace();
@@ -434,7 +444,7 @@ public class ManufacturerAgent extends Agent{
 				}
 				step++;
 				break;
-			// Receive storage costs message from warehouse
+			// Receive warehouse costs message from warehouse
 			case 1:
 				MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.INFORM);
 				ACLMessage msg1 = myAgent.receive(mt);
@@ -442,10 +452,12 @@ public class ManufacturerAgent extends Agent{
 					try {
 						// Transform strings to java objects
 						ContentElement ce = getContentManager().extractContent(msg1);
-						if(ce instanceof Costs) {
+						if(ce instanceof WarehouseExpenses) {
 							// Get storage cost for the day
-							Costs costs = (Costs) ce;
-							dailyWarehouseStorageCost = costs.getCost();
+							WarehouseExpenses expenses = (WarehouseExpenses) ce;
+							dailyPurchasesCost = expenses.getSuppliesCost();
+							dailyPenaltiesCost = expenses.getPenaltiesCost();
+							dailyWarehouseStorageCost = expenses.getStorageCost();
 							step++;
 						}
 					} catch (CodecException codece) {
@@ -457,10 +469,12 @@ public class ManufacturerAgent extends Agent{
 				break;
 			// Calculate daily profit
 			case 2:
-				dailyProfit = dailyPayments - dailyWarehouseStorageCost - dailyPurchaseAndLatePenaltyCosts;
+				dailyProfit = dailyPayments - dailyPenaltiesCost - dailyWarehouseStorageCost - dailyPurchasesCost;
 				totalProfit += dailyProfit;
+				System.out.println("Daily payment of: " + dailyPayments);
 				System.out.println("Daily profit of: " + dailyProfit);
 				System.out.println("Total profit of: " + totalProfit);
+				step++;
 				break;
 			}
 		}
@@ -475,7 +489,8 @@ public class ManufacturerAgent extends Agent{
 		public void action() {
 			// Reset daily variables
 			dailyProfit = 0;
-			dailyPurchaseAndLatePenaltyCosts = 0;
+			dailyPurchasesCost = 0;
+			dailyPenaltiesCost = 0;
 			dailyWarehouseStorageCost = 0;
 			dailyPayments = 0;
 			// Create predicate

@@ -15,9 +15,9 @@ public class SupplyChainOntology extends BeanOntology{
 	private SupplyChainOntology(String name) {
 		super(name);
 		try {
-			add("smartphone_supply_chain_ontology.concepts");
-			add("smartphone_supply_chain_ontology.predicates");
-			add("smartphone_supply_chain_ontology.actions");
+			add("smartphones_supply_chain_ontology.concepts");
+			add("smartphones_supply_chain_ontology.predicates");
+			add("smartphones_supply_chain_ontology.actions");
 		} catch (BeanOntologyException e) {
 			e.printStackTrace();
 		}

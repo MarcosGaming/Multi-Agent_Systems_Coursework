@@ -33,6 +33,7 @@ public class CustomerAgent extends Agent{
 
 	private Codec codec = new SLCodec();
 	private Ontology ontology = SupplyChainOntology.getInstance();
+	
 	private AID manufacturerAID;
 	private AID dayCoordinatorAID;
 	
@@ -52,7 +53,7 @@ public class CustomerAgent extends Agent{
 		} catch(FIPAException e) {
 			e.printStackTrace();
 		}
-		// Wait for the other agents to initialize
+		// Wait for the other agents to initialise
 		doWait(2000);
 		// Add starter behaviours
 		this.addBehaviour(new FindManufacturerBehaviour());
@@ -62,7 +63,7 @@ public class CustomerAgent extends Agent{
 	}
 	
 	// Called when agent is deleted
-	protected void TakeDown() {
+	protected void takeDown() {
 		// Bye message
 		System.out.println("Agent " + this.getLocalName() + " is terminating.");
 		// Deregister agent from the yellow pages
@@ -115,8 +116,7 @@ public class CustomerAgent extends Agent{
 			if(msg != null) {
 				try {
 					// Convert string to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
+					ContentElement ce = getContentManager().extractContent(msg);
 					// Every new day the customer is going to request a single order to the manufacturer
 					if(ce instanceof NewDay) {
 						// Add to the customer the request order behaviour
@@ -176,13 +176,12 @@ public class CustomerAgent extends Agent{
 				// Receive order
 				try {
 					// Convert string to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
+					ContentElement ce = getContentManager().extractContent(msg);
 					if(ce instanceof OrderDelivered) {
 						OrderDelivered orderDelivered = (OrderDelivered) ce;
 						// Create predicate
 						Payment payment = new Payment();
-						payment.setPrice(orderDelivered.getOrder().getQuantity() * orderDelivered.getOrder().getUnitPrice());
+						payment.setAmount(orderDelivered.getOrder().getQuantity() * orderDelivered.getOrder().getUnitPrice());
 						// Send payment
 						ACLMessage paymentMsg = new ACLMessage(ACLMessage.INFORM);
 						paymentMsg.addReceiver(msg.getSender());
