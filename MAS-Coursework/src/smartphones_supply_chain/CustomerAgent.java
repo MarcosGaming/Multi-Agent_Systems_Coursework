@@ -37,7 +37,7 @@ public class CustomerAgent extends Agent{
 	private AID manufacturerAID;
 	private AID dayCoordinatorAID;
 	
-	// Initialize the agent
+	// Initialise the agent
 	protected void setup() {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
@@ -222,17 +222,17 @@ public class CustomerAgent extends Agent{
 		// Ram adecision
 		Ram ram = new Ram();
 		if(Math.random() < 0.5) {
-			ram.setAmount(4);
+			ram.setAmount("4");
 		 }else {
-			ram.setAmount(8);
+			ram.setAmount("8");
 		}
 		smartphone.setRam(ram);
 		// Storage decision
 		Storage storage = new Storage();
 		if(Math.random() < 0.5) {
-			storage.setCapacity(64);
+			storage.setCapacity("64");
 		}else {
-			storage.setCapacity(256);		
+			storage.setCapacity("256");		
 		}
 		smartphone.setStorage(storage);
 		// Create a new order

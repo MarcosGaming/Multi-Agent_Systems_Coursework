@@ -4,14 +4,14 @@ import jade.content.onto.annotations.Slot;
 
 public class Ram extends Component{
 	
-	private int amount;
+	private String amount;
 	
-	@Slot(mandatory = true)
-	public int getAmount() {
+	@Slot(mandatory = true, permittedValues = {"4","8"})
+	public String getAmount() {
 		return amount;
 	}
 	
-	public void setAmount(int amount) {
+	public void setAmount(String amount) {
 		this.amount = amount;
 	}
 
@@ -19,7 +19,7 @@ public class Ram extends Component{
 	public int hashCode() {
 		final int prime = 31;
 		int result = super.hashCode();
-		result = prime * result + amount;
+		result = prime * result + ((amount == null) ? 0 : amount.hashCode());
 		return result;
 	}
 
@@ -32,11 +32,11 @@ public class Ram extends Component{
 		if (getClass() != obj.getClass())
 			return false;
 		Ram other = (Ram) obj;
-		if (amount != other.amount)
+		if (amount == null) {
+			if (other.amount != null)
+				return false;
+		} else if (!amount.equals(other.amount))
 			return false;
 		return true;
 	}
-	
-	
-
 }

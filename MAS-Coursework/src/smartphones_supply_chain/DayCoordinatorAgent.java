@@ -31,9 +31,9 @@ public class DayCoordinatorAgent extends Agent{
 	private AID[] customersAID;
 	private AID[] suppliersAID;
 	
-	public static final int NUM_DAYS = 100;
+	private static final int NUM_DAYS = 100;
 	
-	// Initialize the agent
+	// Initialise the agent
 	protected void setup() {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
@@ -149,6 +149,7 @@ public class DayCoordinatorAgent extends Agent{
 	public class SyncAgentsBehaviour extends Behaviour{
 		private int step = 0;
 		private int currentDay = 1;
+		private int currentRepetition = 1;
 		
 		@Override
 		public void action() {
@@ -169,8 +170,8 @@ public class DayCoordinatorAgent extends Agent{
 				for(AID aid : suppliersAID) {
 					msgNewDay.addReceiver(aid);
 				}
-				// Convert from java objects to string
 				try {
+					// Convert from java objects to string
 					getContentManager().fillContent(msgNewDay, newDay);
 					myAgent.send(msgNewDay);
 				} catch (CodecException ce) {
@@ -232,8 +233,8 @@ public class DayCoordinatorAgent extends Agent{
 				for(AID aid : suppliersAID) {
 					msg.addReceiver(aid);
 				}
-				// Convert from java objects to string
 				try {
+					// Convert from java objects to string
 					getContentManager().fillContent(msg, endSimulation);
 					myAgent.send(msg);
 				} catch (CodecException ce) {

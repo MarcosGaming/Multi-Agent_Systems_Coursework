@@ -72,7 +72,7 @@ public class WarehouseAgent extends Agent{
 	private int dailyPenaltiesCost;
 	private int dailyStorageCost;
 	
-	// Initialize the agent
+	// Initialise the agent
 	protected void setup() {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
@@ -88,7 +88,7 @@ public class WarehouseAgent extends Agent{
 		} catch(FIPAException e) {
 			e.printStackTrace();
 		}
-		// Initialize variables
+		// Initialise variables
 		suppliers = new ArrayList<Supplier>();
 		readyOrders = new ArrayList<Order>();
 		pendingOrders = new ArrayList<PendingOrder>();
@@ -627,14 +627,14 @@ public class WarehouseAgent extends Agent{
 				} else if(componentToFind instanceof Storage && component instanceof Storage) {
 					Storage storageToFind = (Storage) componentToFind;
 					Storage storage = (Storage) component;
-					if(storage.getCapacity() == storageToFind.getCapacity())
+					if(storage.getCapacity().equals(storageToFind.getCapacity()))
 					{
 						return storage;
 					}
 				} else if(componentToFind instanceof Ram && component instanceof Ram) {
 					Ram ramToFind = (Ram) componentToFind;
 					Ram ram = (Ram) component;
-					if(ram.getAmount() == ramToFind.getAmount())
+					if(ram.getAmount().equals(ramToFind.getAmount()))
 					{
 						return ram;
 					}

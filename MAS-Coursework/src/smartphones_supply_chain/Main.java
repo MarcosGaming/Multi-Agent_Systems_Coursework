@@ -25,10 +25,10 @@ public class Main {
 			rma.start();
 			
 			// Suppliers information
-			Object[] supplierInformation1 = new Object[] {new String[]{"5", "7"}, new int[]{100,150}, new int[]{64, 256}, new int[]{25,50}, 
-					new int[]{4, 8}, new int[]{30,60}, new String[]{"2000", "3000"}, new int[]{70,100}, 1};
-			Object[] supplierInformation2 = new Object[] {new String[]{}, new int[]{}, new int[]{64, 256}, new int[]{15,40}, 
-					new int[]{4, 8}, new int[]{20,35}, new String[]{}, new int[]{}, 4};
+			Object[] supplierInformation1 = new Object[] {new String[]{"5", "7"}, new int[]{100,150}, new String[]{"64", "256"}, new int[]{25,50}, 
+					new String[]{"4", "8"}, new int[]{30,60}, new String[]{"2000", "3000"}, new int[]{70,100}, 1};
+			Object[] supplierInformation2 = new Object[] {new String[]{}, new int[]{}, new String[]{"64", "256"}, new int[]{15,40}, 
+					new String[]{"4", "8"}, new int[]{20,35}, new String[]{}, new int[]{}, 4};
 			// Supplier agents
 			AgentController supplierAgent1 = myContainer.createNewAgent("SupplierAgent1", SupplierAgent.class.getCanonicalName(), supplierInformation1);
 			supplierAgent1.start();

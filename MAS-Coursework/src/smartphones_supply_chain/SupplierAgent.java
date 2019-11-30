@@ -46,7 +46,7 @@ public class SupplierAgent extends Agent{
 	private SupplierInformation supplierInformation;
 	private ArrayList<SuppliesToDeliver> pendingDeliveries;
 	
-	// Initialize the agent
+	// Initialise the agent
 	protected void setup() {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
@@ -64,7 +64,7 @@ public class SupplierAgent extends Agent{
 		}
 		// Get the supplier information from the arguments
 		Object[] args = this.getArguments();
-		supplierInformation = createSupplierInformation((String[])args[0], (int[])args[1], (int[])args[2], (int[])args[3], (int[])args[4], (int[])args[5], (String[])args[6], 
+		supplierInformation = createSupplierInformation((String[])args[0], (int[])args[1], (String[])args[2], (int[])args[3], (String[])args[4], (int[])args[5], (String[])args[6], 
 														(int[])args[7], (int)args[8]);
 		// Initialise pending deliveries list
 		pendingDeliveries = new ArrayList<SuppliesToDeliver>();
@@ -299,38 +299,38 @@ public class SupplierAgent extends Agent{
 		
 	}
 	
-	// Method that is going to extract its information from the arguments
-	private SupplierInformation createSupplierInformation(String[] screenSizes, int[] screenPrices, int[] storageCapacities, int[] storagePrices,
-			int[] ramAmounts, int[] ramPrices, String[] batteryCharges, int[] batteryPrices, int deliveryTime) {
+	// Method that is going to extract the supplier information from the arguments
+	private SupplierInformation createSupplierInformation(String[] screenSizes, int[] screenPrices, String[] storageCapacities, int[] storagePrices,
+			String[] ramAmounts, int[] ramPrices, String[] batteryCharges, int[] batteryPrices, int deliveryTime) {
 		SupplierInformation supplierInformation = new SupplierInformation();
 		ArrayList<Component> components = new ArrayList<Component>();
 		// Screens
 		for(int i = 0; i < screenSizes.length; i++) {
-		Screen screen = new Screen();
-		screen.setSize(screenSizes[i]);
-		screen.setPrice(screenPrices[i]);
-		components.add(screen);
+			Screen screen = new Screen();
+			screen.setSize(screenSizes[i]);
+			screen.setPrice(screenPrices[i]);
+			components.add(screen);
 		}
 		// Storages
 		for(int i = 0; i < storageCapacities.length; i++) {
-		Storage storage = new Storage();
-		storage.setCapacity(storageCapacities[i]);
-		storage.setPrice(storagePrices[i]);
-		components.add(storage);
+			Storage storage = new Storage();
+			storage.setCapacity(storageCapacities[i]);
+			storage.setPrice(storagePrices[i]);
+			components.add(storage);
 		}
 		// Rams
 		for(int i = 0; i < ramAmounts.length; i++) {
-		Ram ram = new Ram();
-		ram.setAmount(ramAmounts[i]);
-		ram.setPrice(ramPrices[i]);
-		components.add(ram);
+			Ram ram = new Ram();
+			ram.setAmount(ramAmounts[i]);
+			ram.setPrice(ramPrices[i]);
+			components.add(ram);
 		}
 		// Batteries
 		for(int i = 0; i < batteryCharges.length; i++) {
-		Battery battery = new Battery();
-		battery.setCharge(batteryCharges[i]);
-		battery.setPrice(batteryPrices[i]);
-		components.add(battery);
+			Battery battery = new Battery();
+			battery.setCharge(batteryCharges[i]);
+			battery.setPrice(batteryPrices[i]);
+			components.add(battery);
 		}
 		supplierInformation.setComponents(components);
 		supplierInformation.setDeliveryTime(deliveryTime);

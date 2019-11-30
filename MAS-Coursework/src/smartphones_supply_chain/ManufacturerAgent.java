@@ -52,12 +52,11 @@ public class ManufacturerAgent extends Agent{
 	private int dailyPenaltiesCost;
 	private int dailyWarehouseStorageCost;
 	private int dailyPayments;
-	private int currentDay;
 	
 	private int totalProfit;
-	private static final int minimumBenefitMargin = 20;
+	private static final int minimumBenefitMargin = 3;
 	
-	// Initialize the agent
+	// Initialise the agent
 	protected void setup() {
 		getContentManager().registerLanguage(codec);
 		getContentManager().registerOntology(ontology);
@@ -73,21 +72,19 @@ public class ManufacturerAgent extends Agent{
 		} catch(FIPAException e) {
 			e.printStackTrace();
 		}
-		// Initialize variables
+		// Initialise variables
 		totalProfit = 0;
 		dailyProfit = 0;
 		dailyPurchasesCost = 0;
 		dailyPenaltiesCost = 0;
 		dailyWarehouseStorageCost = 0;
 		dailyPayments = 0;
-		currentDay = 0;
-		// Wait for other agents to initialize
+		// Wait for other agents to initialise
 		doWait(2000);
 		// Add starter behaviours
 		this.addBehaviour(new FindCustomersBehaviour());
 		this.addBehaviour(new FindWarehouseBehaviour());
 		this.addBehaviour(new FindDayCoordinatorBehaviour());
-		// Add starter behaviours
 		this.addBehaviour(new DayCoordinatorWaiterBehaviour());
 	}
 	
@@ -165,12 +162,9 @@ public class ManufacturerAgent extends Agent{
 			if(msg != null) {
 				try {
 					// Convert string to java objects
-					ContentElement ce = null;
-					ce = getContentManager().extractContent(msg);
+					ContentElement ce = getContentManager().extractContent(msg);
 					// Every new day the manufacturer is going to carry out a series of operations
 					if(ce instanceof NewDay) {
-						NewDay newDay = new NewDay();
-						currentDay = newDay.getDayNumber();
 						// Add sequential behaviour
 						SequentialBehaviour dailyActivity = new SequentialBehaviour();
 						dailyActivity.addSubBehaviour(new ProcessOrderBehaviour());
@@ -179,7 +173,6 @@ public class ManufacturerAgent extends Agent{
 						dailyActivity.addSubBehaviour(new EndDayBehaviour());
 						myAgent.addBehaviour(dailyActivity);
 					} else {
-						// If end simulation is received print total profit
 						myAgent.doDelete();
 					}
 					
@@ -226,7 +219,7 @@ public class ManufacturerAgent extends Agent{
 								costRequestMsg.setLanguage(codec.getName());
 								costRequestMsg.setOntology(ontology.getName());
 								try {
-									// Transform java objects to strings
+									// Convert java objects to strings
 									getContentManager().fillContent(costRequestMsg, request);
 									myAgent.send(costRequestMsg);
 								} catch (CodecException codece) {
@@ -260,7 +253,7 @@ public class ManufacturerAgent extends Agent{
 							int benefit = sellPrice - costs.getCost();
 							// Decide whether to accept the order or not based on the minimum benefit margin
 							float benefitMargin = ((float)benefit / (float)sellPrice) * 100.0f;
-							if(benefitMargin >= minimumBenefitMargin && totalProfit >= 0) {
+							if(benefitMargin >= minimumBenefitMargin) {
 								// Create action
 								PrepareOrderToAssemble orderToAssemble = new PrepareOrderToAssemble();
 								orderToAssemble.setOrder(currentOrder);
@@ -471,7 +464,6 @@ public class ManufacturerAgent extends Agent{
 			case 2:
 				dailyProfit = dailyPayments - dailyPenaltiesCost - dailyWarehouseStorageCost - dailyPurchasesCost;
 				totalProfit += dailyProfit;
-				System.out.println("Daily payment of: " + dailyPayments);
 				System.out.println("Daily profit of: " + dailyProfit);
 				System.out.println("Total profit of: " + totalProfit);
 				step++;
